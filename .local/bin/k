@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+help() {
+	echo "Usage: k <app> <commands>"
+}
+
+clone() {
+	if [[ ! -d $GIT_DIR ]]; then
+		git clone --bare "$K_GIT_REMOTE" "$GIT_DIR"
+	else
+		echo "Repository already exists at $GIT_DIR" && exit 1
+	fi
+	echo $GIT_DIR
+	echo $GIT_WORK_TREE
+	git config --local status.showUntrackedFiles no
+	git checkout
+}
+
+init() {
+	echo $GIT_DIR
+	echo $GIT_WORK_TREE
+	if [[ ! -d $GIT_DIR ]]; then
+		git init --shared=false
+		git config --local status.showUntrackedFiles no
+		git remote add origin "$K_GIT_REMOTE"
+	else
+		echo "Repository already exists at $GIT_DIR" && exit 1
+	fi
+}
+
+delete() {
+	files=$(git ls-files $GIT_WORK_TREE | sort -r)
+	echo "The following files will be deleted: $files"
+	dirs=$(git ls-tree --name-only -d -r HEAD $GIT_WORK_TREE | sort -r)
+	echo "$dirs"
+	echo "Deleting $GIT_DIR"
+}
+
+if (($# < 2)); then
+	help && exit 1
+fi
+
+export K_APP=$1
+shift
+
+export GIT_DIR=$HOME/.config/kconf/$K_APP.git
+export GIT_WORK_TREE=$HOME
+export K_GIT_REMOTE=git@github.com:kconf/$K_APP.git
+
+export K_COMMAND=$1
+
+if [[ $K_COMMAND != "init" && $K_COMMAND != "clone" && ! -d $GIT_DIR ]]; then
+	echo "No git repository found at $GIT_DIR" && exit 1
+fi
+
+case $K_COMMAND in
+"init") init ;;
+"clone") clone ;;
+"delete") delete ;;
+*) git "$@" ;;
+esac
