@@ -6,7 +6,8 @@ fatal() {
 }
 
 help() {
-  echo "Usage: k [app] <list | git commands>"
+  echo "Usage: k list"
+  echo "       k [app] <git-commands>"
 }
 
 clone() {
