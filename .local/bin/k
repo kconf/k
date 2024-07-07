@@ -6,7 +6,7 @@ fatal() {
 }
 
 help() {
-	echo "Usage: k [list] [<app> <commands>]"
+	echo "Usage: k [app] <list | git commands>"
 }
 
 clone() {
@@ -27,12 +27,6 @@ init() {
 	else
 		fatal "Repository already exists at $GIT_DIR"
 	fi
-}
-
-list() {
-	for repo in $K_REPO_D/*.git; do
-		[ -d "$repo" ] && [ -r "$repo" ] && basename "$repo" .git
-	done
 }
 
 delete() {
