@@ -1,61 +1,116 @@
 #!/usr/bin/env bash
 
+fatal() {
+	echo "$K_APP: fatal: $1" >&2
+	exit 1
+}
+
 help() {
-	echo "Usage: k <app> <commands>"
+	echo "Usage: k [list] [<app> <commands>]"
 }
 
 clone() {
 	if [[ ! -d $GIT_DIR ]]; then
 		git clone --bare "$K_GIT_REMOTE" "$GIT_DIR"
 	else
-		echo "Repository already exists at $GIT_DIR" && exit 1
+		fatal "Repository already exists at $GIT_DIR"
 	fi
-	echo $GIT_DIR
-	echo $GIT_WORK_TREE
 	git config --local status.showUntrackedFiles no
 	git checkout
 }
 
 init() {
-	echo $GIT_DIR
-	echo $GIT_WORK_TREE
 	if [[ ! -d $GIT_DIR ]]; then
 		git init --shared=false
 		git config --local status.showUntrackedFiles no
 		git remote add origin "$K_GIT_REMOTE"
 	else
-		echo "Repository already exists at $GIT_DIR" && exit 1
+		fatal "Repository already exists at $GIT_DIR"
 	fi
 }
 
-delete() {
-	files=$(git ls-files $GIT_WORK_TREE | sort -r)
-	echo "The following files will be deleted: $files"
-	dirs=$(git ls-tree --name-only -d -r HEAD $GIT_WORK_TREE | sort -r)
-	echo "$dirs"
-	echo "Deleting $GIT_DIR"
+list() {
+	for repo in $K_REPO_D/*.git; do
+		[ -d "$repo" ] && [ -r "$repo" ] && basename "$repo" .git
+	done
 }
 
-if (($# < 2)); then
-	help && exit 1
-fi
+delete() {
+	cd "$GIT_WORK_TREE" || fatal "Could not change to $GIT_WORK_TREE"
+	OLDIFS=$IFS
+	IFS=$(printf '\n\t')
+	files=$(git ls-files | sort -r)
+	folders=$(git ls-tree --name-only -d -r HEAD | sort -r)
+	echo -n "The following files will be deleted:
 
-export K_APP=$1
-shift
+$files
 
-export GIT_DIR=$HOME/.config/kconf/$K_APP.git
+Type '$K_APP' to confirm deletion: "
+	read -r confirm
+	if [[ $confirm == "$K_APP" ]]; then
+		for file in $files; do
+			rm -f $file || echo "could not delete $file"
+		done
+
+		rm -rf $GIT_DIR || echo "could not delete $GIT_DIR"
+		echo "Repository deleted."
+		if [[ -n $folders ]]; then
+			echo "You can manually remove the following directories:
+
+$folders"
+		fi
+	else
+		echo "Deletion aborted"
+	fi
+	IFS=$OLDIFS
+}
+
+export K_REPO_D=$HOME/.config/kconf
 export GIT_WORK_TREE=$HOME
-export K_GIT_REMOTE=git@github.com:kconf/$K_APP.git
 
-export K_COMMAND=$1
+run_app_cmd() {
+	export K_APP=$1
+	shift
+	export GIT_DIR=$K_REPO_D/$K_APP.git
+	export K_GIT_REMOTE=git@github.com:kconf/$K_APP.git
+	cmd=$1
 
-if [[ $K_COMMAND != "init" && $K_COMMAND != "clone" && ! -d $GIT_DIR ]]; then
-	echo "No git repository found at $GIT_DIR" && exit 1
+	if [[ $cmd != "init" && $cmd != "clone" && ! -d $GIT_DIR ]]; then
+		fatal "No git repository found at $GIT_DIR"
+	fi
+
+	case $cmd in
+	"init") init ;;
+	"clone") clone ;;
+	"delete") delete ;;
+	*) git "$@" ;;
+	esac
+}
+
+run_cmd() {
+  apps=($(find "$K_REPO_D" -maxdepth 1 -type d -name '*.git' -exec basename {} ".git" \;))
+
+	case $1 in
+	"list")
+    for app in "${apps[@]}"; do
+      echo $app
+    done
+		;;
+	*)
+		for app in "${apps[@]}"; do
+      echo "$app:"
+			run_app_cmd "$app" "$@"
+		done
+		;;
+	esac
+}
+
+if (($# == 0)); then
+	help && exit 0
 fi
 
-case $K_COMMAND in
-"init") init ;;
-"clone") clone ;;
-"delete") delete ;;
-*) git "$@" ;;
-esac
+if [[ -d $HOME/.config/kconf/$1.git ]]; then
+  run_app_cmd "$@"
+else
+  run_cmd "$@"
+fi
