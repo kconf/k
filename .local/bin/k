@@ -1,109 +1,109 @@
 #!/usr/bin/env bash
 
 fatal() {
-	echo "$K_APP: fatal: $1" >&2
-	exit 1
+  echo "$K_APP: fatal: $1" >&2
+  exit 1
 }
 
 help() {
-	echo "Usage: k [app] <list | git commands>"
+  echo "Usage: k [app] <list | git commands>"
 }
 
 clone() {
-	if [[ ! -d $GIT_DIR ]]; then
-		git clone --bare "$K_GIT_REMOTE" "$GIT_DIR"
-	else
-		fatal "Repository already exists at $GIT_DIR"
-	fi
-	git config --local status.showUntrackedFiles no
-	git checkout
+  if [[ ! -d $GIT_DIR ]]; then
+    git clone --bare "$K_GIT_REMOTE" "$GIT_DIR"
+  else
+    fatal "Repository already exists at $GIT_DIR"
+  fi
+  git config --local status.showUntrackedFiles no
+  git checkout
 }
 
 init() {
-	if [[ ! -d $GIT_DIR ]]; then
-		git init --shared=false
-		git config --local status.showUntrackedFiles no
-		git remote add origin "$K_GIT_REMOTE"
-	else
-		fatal "Repository already exists at $GIT_DIR"
-	fi
+  if [[ ! -d $GIT_DIR ]]; then
+    git init --shared=false
+    git config --local status.showUntrackedFiles no
+    git remote add origin "$K_GIT_REMOTE"
+  else
+    fatal "Repository already exists at $GIT_DIR"
+  fi
 }
 
 delete() {
-	cd "$GIT_WORK_TREE" || fatal "Could not change to $GIT_WORK_TREE"
-	OLDIFS=$IFS
-	IFS=$(printf '\n\t')
-	files=$(git ls-files | sort -r)
-	folders=$(git ls-tree --name-only -d -r HEAD | sort -r)
-	echo -n "The following files will be deleted:
+  cd "$GIT_WORK_TREE" || fatal "Could not change to $GIT_WORK_TREE"
+  OLDIFS=$IFS
+  IFS=$(printf '\n\t')
+  files=$(git ls-files | sort -r)
+  folders=$(git ls-tree --name-only -d -r HEAD | sort -r)
+  echo -n "The following files will be deleted:
 
 $files
 
 Type '$K_APP' to confirm deletion: "
-	read -r confirm
-	if [[ $confirm == "$K_APP" ]]; then
-		for file in $files; do
-			rm -f $file || echo "could not delete $file"
-		done
+  read -r confirm
+  if [[ $confirm == "$K_APP" ]]; then
+    for file in $files; do
+      rm -f $file || echo "could not delete $file"
+    done
 
-		rm -rf $GIT_DIR || echo "could not delete $GIT_DIR"
-		echo "Repository deleted."
-		if [[ -n $folders ]]; then
-			echo "You can manually remove the following directories:
+    rm -rf $GIT_DIR || echo "could not delete $GIT_DIR"
+    echo "Repository deleted."
+    if [[ -n $folders ]]; then
+      echo "You can manually remove the following directories:
 
-$folders"
-		fi
-	else
-		echo "Deletion aborted"
-	fi
-	IFS=$OLDIFS
+    $folders"
+    fi
+  else
+    echo "Deletion aborted"
+  fi
+  IFS=$OLDIFS
 }
 
 export K_REPO_D=$HOME/.config/kconf
 export GIT_WORK_TREE=$HOME
 
 run_app_cmd() {
-	export K_APP=$1
-	shift
-	export GIT_DIR=$K_REPO_D/$K_APP.git
-	export K_GIT_REMOTE=git@github.com:kconf/$K_APP.git
-	cmd=$1
+  export K_APP=$1
+  shift
+  export GIT_DIR=$K_REPO_D/$K_APP.git
+  export K_GIT_REMOTE=git@github.com:kconf/$K_APP.git
+  cmd=$1
 
-	if [[ $cmd != "init" && $cmd != "clone" && ! -d $GIT_DIR ]]; then
-		fatal "No git repository found at $GIT_DIR"
-	fi
+  if [[ $cmd != "init" && $cmd != "clone" && ! -d $GIT_DIR ]]; then
+    fatal "No git repository found at $GIT_DIR"
+  fi
 
-	case $cmd in
-	"init") init ;;
-	"clone") clone ;;
-	"delete") delete ;;
-	*) git "$@" ;;
-	esac
+  case $cmd in
+  "init") init ;;
+  "clone") clone ;;
+  "delete") delete ;;
+  *) git "$@" ;;
+  esac
 }
 
 run_cmd() {
   apps=($(find "$K_REPO_D" -maxdepth 1 -type d -name '*.git' -exec basename {} ".git" \;))
 
-	case $1 in
-	"list")
+  case $1 in
+  "list")
     for app in "${apps[@]}"; do
       echo $app
     done
-		;;
-	*)
-		for app in "${apps[@]}"; do
+    ;;
+  *)
+    for app in "${apps[@]}"; do
       echo "$app:"
-			run_app_cmd "$app" "$@"
-		done
-		;;
-	esac
+      run_app_cmd "$app" "$@"
+    done
+    ;;
+  esac
 }
 
 if (($# == 0)); then
-	help && exit 0
+  help && exit 0
 fi
 
-if [[ -d $HOME/.config/kconf/$1.git ]]; then
+if [[ -d $HOME/.config/kconf/$1.git || $2 == "init" || $2 == "clone" ]]; then
   run_app_cmd "$@"
 else
   run_cmd "$@"
