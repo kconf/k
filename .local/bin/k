@@ -52,7 +52,7 @@ Type '$K_APP' to confirm deletion: "
     if [[ -n $folders ]]; then
       echo "You can manually remove the following directories:
 
-    $folders"
+$folders"
     fi
   else
     echo "Deletion aborted"
