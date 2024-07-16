@@ -93,7 +93,7 @@ run_cmd() {
     ;;
   *)
     for app in "${apps[@]}"; do
-      echo "$app:"
+      echo -e "\e[1;32m \e[3;33m$app\e[0m"
       run_app_cmd "$app" "$@"
     done
     ;;
