@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+export K_GITHUB_USER=kconf
+
 fatal() {
   echo "$K_APP: fatal: $1" >&2
   exit 1
@@ -60,14 +62,18 @@ $folders"
   IFS=$OLDIFS
 }
 
-export K_REPO_D=$HOME/.config/kconf
+web() {
+  gh w $K_GITHUB_USER/$K_APP
+}
+
+export K_REPO_D=$HOME/.config/$K_GITHUB_USER
 export GIT_WORK_TREE=$HOME
 
 run_app_cmd() {
   export K_APP=$1
   shift
   export GIT_DIR=$K_REPO_D/$K_APP.git
-  export K_GIT_REMOTE=git@github.com:kconf/$K_APP.git
+  export K_GIT_REMOTE=git@github.com:$K_GITHUB_USER/$K_APP.git
   cmd=$1
 
   if [[ $cmd != "init" && $cmd != "clone" && ! -d $GIT_DIR ]]; then
@@ -78,6 +84,7 @@ run_app_cmd() {
   "init") init ;;
   "clone") clone ;;
   "delete") delete ;;
+  "w") web ;;
   *) git "$@" ;;
   esac
 }
@@ -104,7 +111,7 @@ if (($# == 0)); then
   help && exit 0
 fi
 
-if [[ -d $HOME/.config/kconf/$1.git || $2 == "init" || $2 == "clone" ]]; then
+if [[ -d $HOME/.config/$K_GITHUB_USER/$1.git || $2 == "init" || $2 == "clone" ]]; then
   run_app_cmd "$@"
 else
   run_cmd "$@"
