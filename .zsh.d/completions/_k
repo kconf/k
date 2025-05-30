@@ -1,8 +1,10 @@
 #compdef k
 
+# 获取所有 app 名称（~/.config/kconf 中的目录名），并去掉 .git 后缀
 _get_k_apps() {
   local -a apps
   if [[ -d ~/.config/kconf ]]; then
+    # 获取所有 .git 结尾的目录名，并去掉 .git 后缀
     apps=(${(f)"$(find ~/.config/kconf -maxdepth 1 -mindepth 1 -type d -name '*.git' \
                   -exec basename {} \; 2>/dev/null | sed 's/\.git$//')"})
   fi
@@ -10,12 +12,14 @@ _get_k_apps() {
 }
 
 _k() {
-  local curcontext="$curcontext" state state_descr line
+  local context state state_descr line
   typeset -A opt_args
 
+  # 解析当前命令行
   _arguments -C \
     '1:app:->apps' \
-    '*:: :->git_args'
+    '2:command:->commands' \
+    '*::arguments:->args'
 
   case $state in
     (apps)
@@ -23,10 +27,116 @@ _k() {
       apps_list=($(_get_k_apps))
       _describe -t apps 'available apps' apps_list
       ;;
-      
-    (git_args)
-      # 直接委托给 Git 补全
-      _normal
+
+    (commands)
+      local -a commands
+      commands=(
+        'list:List something'
+        'delete:Delete something'
+        'status:Show the working tree status'
+        'add:Add file contents to the index'
+        'commit:Record changes to the repository'
+        'push:Update remote refs along with associated objects'
+        'pull:Fetch from and integrate with another repository'
+        'reset:Reset current HEAD to the specified state'
+        'checkout:Switch branches or restore working tree files'
+        'branch:List, create, or delete branches'
+        'log:Show commit logs'
+        'clone:Clone a repository into a new directory'
+      )
+      _describe -t commands 'command' commands
+      ;;
+
+    (args)
+      case ${line[2]} in
+        # Git 命令的补全选项
+        status)
+          _arguments \
+            '(-s --short)'{-s,--short}'[Give output in short format]' \
+            '(-b --branch)'{-b,--branch}'[Show branch information]' \
+            '(--porcelain)--porcelain[Give output in an easy-to-parse format]'
+          ;;
+        
+        add)
+          _arguments \
+            '(-n --dry-run)'{-n,--dry-run}'[Dry run]' \
+            '(-v --verbose)'{-v,--verbose}'[Be verbose]' \
+            '(-f --force)'{-f,--force}'[Allow adding otherwise ignored files]' \
+            '*:files:_files'
+          ;;
+        
+        commit)
+          _arguments \
+            '(-m --message)'{-m,--message}'[Commit message]:message' \
+            '(-a --all)'{-a,--all}'[Commit all changed files]' \
+            '(--amend)--amend[Amend previous commit]' \
+            '(-v --verbose)'{-v,--verbose}'[Show unified diff of changes]'
+          ;;
+        
+        push)
+          _arguments \
+            '(-f --force)'{-f,--force}'[Force update]' \
+            '(--set-upstream)--set-upstream[Set upstream reference]' \
+            '(-u --set-upstream)'{-u,--set-upstream}'[Set upstream reference]' \
+            '(--tags)--tags[Push all tags]'
+          ;;
+        
+        pull)
+          _arguments \
+            '(--rebase)--rebase[Rebase instead of merge]' \
+            '(-r --rebase)'{-r,--rebase}'[Rebase instead of merge]'
+          ;;
+        
+        reset)
+          _arguments \
+            '(--hard)--hard[Reset everything]' \
+            '(--soft)--soft[Reset only HEAD]' \
+            '(--mixed)--mixed[Reset HEAD and index]' \
+            ':commit:'
+          ;;
+        
+        checkout)
+          _arguments \
+            '(-b --branch)'{-b,--branch}'[Create new branch]:branch name' \
+            '(-f --force)'{-f,--force}'[Force checkout]' \
+            ':branch or file:_files'
+          ;;
+        
+        branch)
+          _arguments \
+            '(-d --delete)'{-d,--delete}'[Delete branch]' \
+            '(-D)-D[Force delete branch]' \
+            '(-m --move)'{-m,--move}'[Rename branch]' \
+            '(-r --remotes)'{-r,--remotes}'[List remote branches]' \
+            '(-a --all)'{-a,--all}'[List all branches]' \
+            ':branch name:'
+          ;;
+        
+        log)
+          _arguments \
+            '(-n --max-count)'{-n,--max-count}'[Limit number of commits]:number' \
+            '(--oneline)--oneline[One line per commit]' \
+            '(--graph)--graph[Draw ASCII graph]' \
+            '(--decorate)--decorate[Show ref names]' \
+            '*:options:'
+          ;;
+        
+        clone)
+          _arguments \
+            ':repository URL:' \
+            ':directory:_files -/'
+          ;;
+        
+        # 其他命令
+        list|delete)
+          # 不需要额外参数
+          ;;
+        
+        *)
+          # 默认补全文件名
+          _files
+          ;;
+      esac
       ;;
   esac
 }
